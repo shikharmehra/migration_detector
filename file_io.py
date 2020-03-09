@@ -5,8 +5,19 @@ import os
 from .core import TrajRecord
 
 
-def read_csv(file_path):
-    user_daily_loc_count = gl.SFrame.read_csv(file_path, verbose=False)
+def createTrajRecordFromPandasDF(df):
+    user_daily_loc = gl.SFrame(data = df)
+    return createTrajRecordFromSFrame(user_daily_loc)
+
+def createTrajRecordFromSparkDF(df, sparkContext):
+    user_daily_loc = gl.SFrame.from_rdd(df, sparkContext)
+    return createTrajRecordFromSFrame(user_daily_loc)
+
+def createTrajRecordFromCSV(file_path):
+    user_daily_loc = gl.SFrame.read_csv(file_path, verbose=False)
+    return createTrajRecordFromSFrame(user_daily_loc)
+    
+def createTrajRecordFromSFrame(user_daily_loc_count):
     user_daily_loc_count['user_id'] = user_daily_loc_count['user_id'].astype(str)
     # Prepare migration record
     # Assign day index to each date
@@ -46,7 +57,27 @@ def read_csv(file_path):
     return traj
 
 
-def to_csv(result, result_path='result', file_name='migration_event.csv'):
+def getResultAsPandasDF(result):
+    return result.select_columns(
+        ['user_id', 'home', 'destination', 'migration_date',
+         'uncertainty', 'num_error_day',
+         'home_start', 'home_end',
+         'destination_start', 'destination_end',
+         'home_start_date', 'home_end_date',
+         'destination_start_date', 'destination_end_date']
+    ).to_dataframe()
+
+def getResultAsSparkDF(result, sparkContext, sqlContext):
+    return result.select_columns(
+        ['user_id', 'home', 'destination', 'migration_date',
+         'uncertainty', 'num_error_day',
+         'home_start', 'home_end',
+         'destination_start', 'destination_end',
+         'home_start_date', 'home_end_date',
+         'destination_start_date', 'destination_end_date']
+    ).to_spark_dataframe(sparkContext, sqlContext)
+                      
+def getResultAsCsv(result, result_path='result', file_name='migration_event.csv'):
     if not os.path.isdir(result_path):
         os.makedirs(result_path)
     save_file = os.path.join(result_path, file_name)

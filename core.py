@@ -223,8 +223,24 @@ class TrajRecord():
         seg_migr_filter['uncertainty'] = seg_migr_filter['seg_diff'] - 1
         print('Done')
         return seg_migr_filter
-
-    def output_segments(self, result_path='result', segment_file='segments.csv', which_step=3):
+    
+    def get_segments_as_pandas_DF(self, which_step=3):
+        user_seg_migr = self.get_segments(which_step = 3)
+        return user_seg_migr.to_dataframe()
+    
+    def get_segments_as_spark_DF(self, sparkContext, sqlContext, which_step=3):
+        user_seg_migr = self.get_segments(which_step = 3)
+        return user_seg_migr.to_spark_dataframe(sparkContext, sqlContext)
+        
+    def get_segments_as_csv(self, result_path='result', segment_file='segments.csv', which_step=3):
+        user_seg_migr = self.get_segments(which_step = 3)
+    
+        if not os.path.isdir(result_path):
+            os.makedirs(result_path)
+        save_file = os.path.join(result_path, segment_file)
+        user_seg_migr.export_csv(save_file)
+        
+    def get_segments(self, which_step=3):
         """
         Output segments after step 1, 2, or 3
         step 1: Identify contiguous segments
@@ -261,22 +277,20 @@ class TrajRecord():
         user_seg_migr['segment_end'] = user_seg_migr['segment'].apply(
             lambda x: x[1]
         )
-        user_seg_migr['segment_start_date'] = user_seg_migr.apply(
-            lambda x: self.index2date[x['segment_start']]
-        )
         user_seg_migr['segment_end_date'] = user_seg_migr.apply(
             lambda x: self.index2date[x['segment_end']]
+        )
+        user_seg_migr['segment_start_date'] = user_seg_migr.apply(
+            lambda x: self.index2date[x['segment_start']]
         )
         user_seg_migr['segment_length'] = (user_seg_migr['segment_end'] -
                                            user_seg_migr['segment_start'])
         user_seg_migr = user_seg_migr.sort(['user_id', 'segment_start_date'], ascending=True)
-        if not os.path.isdir(result_path):
-            os.makedirs(result_path)
-        save_file = os.path.join(result_path, segment_file)
-        user_seg_migr.select_columns(
+        return user_seg_migr.select_columns(
             ['user_id', 'location',
              'segment_start_date', 'segment_end_date', 'segment_length']
-        ).export_csv(save_file)
+        )
+        return user_seg_migr
 
     def plot_segment(self, user_result, if_migration=False,
                      start_date=None, end_date=None,
